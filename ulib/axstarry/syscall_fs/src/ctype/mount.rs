@@ -2,7 +2,7 @@ extern crate alloc;
 use alloc::string::ToString;
 use alloc::vec::Vec;
 use axfs::api::{lookup, path_exists, FileIO, Kstat, OpenFlags};
-use axlog::{debug, info};
+use axlog::{debug, info, error};
 use axprocess::link::FilePath;
 use axsync::Mutex;
 use syscall_utils::{normal_file_mode, StMode, SyscallError};
@@ -151,7 +151,10 @@ pub fn get_stat_in_fs(path: &FilePath) -> Result<Kstat, SyscallError> {
             }
         }
     }
-    if !real_path.ends_with("/") && !real_path.ends_with("include") {
+    if !axfs::api::metadata(real_path)
+        .map(|meta| meta.is_dir())
+        .unwrap_or(false) 
+        && !real_path.ends_with("/") && !real_path.ends_with("include") {
         // 是文件
         return if let Ok(file) = new_fd(real_path.to_string(), 0.into()) {
             match file.get_stat() {
@@ -162,7 +165,7 @@ pub fn get_stat_in_fs(path: &FilePath) -> Result<Kstat, SyscallError> {
                 }
             }
         } else {
-            Err(SyscallError::ENONET)
+            Err(SyscallError::ENOENT)
         };
     } else {
         // 是目录
@@ -175,7 +178,7 @@ pub fn get_stat_in_fs(path: &FilePath) -> Result<Kstat, SyscallError> {
                 }
             }
         } else {
-            Err(SyscallError::ENONET)
+            Err(SyscallError::ENOENT)
         };
     }
 }
